@@ -1,7 +1,7 @@
 """
 app.py – TransitIQ FastAPI Backend
 ====================================
-REST API for the TransitIQ / iRoutePulse dashboard.
+REST API for the TransitIQ dashboard.
 
 Endpoints
 ---------
