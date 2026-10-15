@@ -1,17 +1,39 @@
+# Virtual environment
+venv/
+.venv/
+env/
+
+# Python
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Env
+.env
+.venv/
 venv/
 env/
-ENV/
-.venv/
-.pytest_cache/
-.coverage
-htmlcov/
+
+# IDE
 .vscode/
 .idea/
 *.swp
-*.swo
+
+# OS
 .DS_Store
 Thumbs.db
-.env
+
+# Pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node (frontend, if added later)
+node_modules/
+dist/
