@@ -1,0 +1,4 @@
+vehicle_id,capacity,available,depot_stop_id,allowed_routes
+V_ERICK_1,4,1,S_MAIN_GATE,IIT_CIRCULAR
+V_ERICK_2,4,1,S_METRO,IIT_CIRCULAR
+V_MINIBUS_1,20,1,S_HOSTEL_ZANSKAR,IIT_CIRCULAR
