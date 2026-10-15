@@ -1,14 +1,4 @@
-"""
-TransitIQ - eta_engine.py
-Explainable ETA: anchor on the last observed arrival, add historical mean segment times,
-plus a decaying carry-over of the most recent segment's deviation (current congestion).
 
-    ETA(target) = actual_last + sum_j [ mean_seg_j + residual_last * rho**j ]
-    window      = ETA +/- z * sqrt(sum_j std_j^2)
-
-NO LEAKAGE: only rows with actual <= current_time are ever used; stats are fit on train trips only.
-Input `arrivals`: trip_id, vehicle_id, route_id, stop_id, seq, scheduled, actual.
-"""
 from __future__ import annotations
 
 import math
@@ -23,7 +13,7 @@ class ETAModel:
         self.stats, self.default_seg, self.stop_seq = stats, default_seg, stop_seq
         self.rho, self.z, self.min_std, self.prior_std = rho, z, min_std, prior_std
 
-    # ------------------------------------------------------------------ fitting
+
     @classmethod
     def fit(cls, train_arrivals: pd.DataFrame, routes: pd.DataFrame, **kw) -> "ETAModel":
         df = train_arrivals.sort_values(["trip_id", "seq"]).copy()
@@ -42,7 +32,7 @@ class ETAModel:
             mean = self.default_seg.get((route_id, seq), 3.0)
         return mean, max(std if std is not None else self.prior_std, self.min_std)
 
-    # ------------------------------------------------------------------ prediction
+   
     def _predict_from_obs(self, obs: pd.DataFrame, route_id, target_seq, scheduled_target):
         """obs = already-filtered observed rows (actual <= now) of ONE trip."""
         if obs.empty:                              # trip not started: fall back to timetable
@@ -86,9 +76,7 @@ def predict_eta(model: ETAModel, observed, trip_id, route_id, stop_id, current_t
 
 
 def predict_all_etas(model: ETAModel, arrivals_full: pd.DataFrame, current_time: float) -> pd.DataFrame:
-    """ETA for every not-yet-reached stop of every trip, as of `current_time`.
-    `arrivals_full` may contain the future (simulator output) - only rows <= current_time are used
-    as observations; the other rows are used just for the trip/stop list and the timetable."""
+
     rows = []
     for trip_id, g in arrivals_full.groupby("trip_id"):
         g = g.sort_values("seq")
@@ -116,8 +104,7 @@ def split_trips(arrivals: pd.DataFrame, test_frac: float = 0.3, seed: int = 42):
 
 def evaluate_eta(arrivals: pd.DataFrame, routes: pd.DataFrame, test_frac: float = 0.3,
                  seed: int = 42, **model_kw) -> dict:
-    """Held-out evaluation. Compares ETA model vs the 'scheduled arrival' baseline using MAE.
-    Each test trip is observed up to stop k, then every later stop is predicted."""
+
     train, test = split_trips(arrivals, test_frac, seed)
     model = ETAModel.fit(train, routes, **model_kw)
     recs = []

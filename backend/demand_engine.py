@@ -1,13 +1,4 @@
-"""
-TransitIQ - demand_engine.py
-Transparent demand forecast + capacity gap per trip and stop.
 
-Forecast  = historical mean passengers for (route, stop, window_start) x scenario multiplier.
-Per trip  : demand of a window is shared equally between the trips of that route arriving in it.
-Occupancy : onboard_before = onboard_prev - alighting (alight_frac of onboard at each stop after the first)
-            available_seats = capacity - onboard_before
-            excess_demand   = max(0, expected_boarding - available_seats)
-"""
 from __future__ import annotations
 
 import math
@@ -18,7 +9,7 @@ from backend.constraints import PlanContext, cancel_unavailable_trips
 
 
 def build_demand_model(history: pd.DataFrame) -> dict:
-    """history: route_id, stop_id, window_start, passenger_count (several days -> averaged)."""
+
     g = history.groupby(["route_id", "stop_id", "window_start"]).passenger_count.mean()
     return g.to_dict()
 
@@ -35,7 +26,6 @@ def forecast_demand(model: dict, route_id: str, stop_id: str, window_start: floa
 
 def forecast_trip_loads(schedules: pd.DataFrame, ctx: PlanContext, model: dict,
                         alight_frac: float = 0.25) -> pd.DataFrame:
-    """Predicted load for every (trip, stop). Cancelled trips (unavailable buses) are excluded."""
     window = ctx.p("demand_window")
     plan, _ = cancel_unavailable_trips(schedules, ctx)
     rows, share_count = [], {}
@@ -66,7 +56,7 @@ def forecast_trip_loads(schedules: pd.DataFrame, ctx: PlanContext, model: dict,
 
 
 def forecast_unserved(schedules: pd.DataFrame, ctx: PlanContext, model: dict) -> pd.DataFrame:
-    """Forecast demand in (route, stop, window) cells that NO trip serves (e.g. after a breakdown)."""
+
     window = ctx.p("demand_window")
     plan, _ = cancel_unavailable_trips(schedules, ctx)
     served = set()
@@ -80,8 +70,7 @@ def forecast_unserved(schedules: pd.DataFrame, ctx: PlanContext, model: dict) ->
 
 
 def rank_routes_by_excess(loads: pd.DataFrame, unserved: pd.DataFrame | None = None) -> pd.DataFrame:
-    """Routes ordered by predicted excess demand (the optimizer's 'where to help first').
-    Pass `unserved` (forecast_unserved) so routes whose trips were all cancelled still rank."""
+
     excess = loads.groupby("route_id").excess_demand.sum() if not loads.empty else pd.Series(dtype=float)
     if unserved is not None and len(unserved):
         excess = excess.add(unserved.groupby("route_id").passengers.sum(), fill_value=0.0)

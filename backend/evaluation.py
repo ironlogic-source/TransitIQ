@@ -1,14 +1,4 @@
-"""
-TransitIQ - evaluation.py
-Turns a simulation result into the metrics shown in the Before-vs-After table,
-plus the optimizer objective J.
 
-Simulation result contract (dict of DataFrames, see CONTRACT.md):
-  arrivals  : trip_id, vehicle_id, route_id, stop_id, seq, scheduled, actual
-  occupancy : trip_id, stop_id, seq, onboard, boarded, left_behind   (optional: capacity)
-  waiting   : stop_id, passengers, wait_min        (wait per passenger for that group)
-  unserved  : route_id, stop_id, window_start, passengers   (demand with NO trip at all)
-"""
 from __future__ import annotations
 
 import pandas as pd
@@ -30,8 +20,7 @@ DIRECTION = {
 
 
 def count_missed_connections(arrivals: pd.DataFrame, window: float = 10.0) -> int:
-    """A connection = trip A (route X) scheduled to arrive at a stop, and trip B (route Y != X)
-    scheduled to depart that stop 0..window min later. Missed if A actually arrives after B."""
+   
     if arrivals is None or len(arrivals) == 0:
         return 0
     missed = 0

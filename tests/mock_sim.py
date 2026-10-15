@@ -1,7 +1,4 @@
-"""
-Mock of backend/simulation.run_simulation with the SAME signature/output contract.
-Used only for tests / until the real simulator is ready. Deterministic for a given seed.
-"""
+
 import math
 import zlib
 

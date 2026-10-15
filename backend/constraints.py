@@ -1,10 +1,4 @@
-"""
-TransitIQ - constraints.py
-Hard-constraint validation. A plan that fails ANY check is infeasible and must never be recommended.
 
-Every check returns (ok: bool, violations: list[str]) so the dashboard can show the reason.
-Time unit everywhere: simulated minutes from 00:00 (e.g. 08:00 = 480).
-"""
 from __future__ import annotations
 
 import math
@@ -40,7 +34,7 @@ def fmt_time(minutes: float) -> str:
 
 @dataclass
 class PlanContext:
-    """Everything the validators / optimizer need, built once from the CSVs."""
+
     vehicles: pd.DataFrame            # vehicle_id, capacity, available, depot_stop_id, [allowed_routes]
     routes: pd.DataFrame              # route_id, seq, stop_id, seg_time_min
     stops: pd.DataFrame               # stop_id, name, x, y   (metres)
@@ -82,12 +76,12 @@ class PlanContext:
         return math.hypot(xa - xb, ya - yb) / self.p("speed_m_per_min")
 
 
-# ----------------------------------------------------------------------------- helpers
+
 Trip = namedtuple("Trip", "trip_id vehicle_id route_id departure_time")
 
 
 def _rows(schedules: pd.DataFrame) -> list:
-    """Fast row iteration (itertuples is slow when called thousands of times by the optimizer)."""
+
     return [Trip(*r) for r in zip(schedules.trip_id, schedules.vehicle_id,
                                   schedules.route_id, schedules.departure_time)]
 
@@ -100,7 +94,7 @@ def _by_vehicle(schedules: pd.DataFrame) -> dict:
 
 
 def _consecutive(schedules, ctx):
-    """Yield (vehicle_id, trip_a, trip_b, end_a, deadhead, gap) for consecutive trips of one bus."""
+
     for vid, trips in _by_vehicle(schedules).items():
         for a, b in zip(trips, trips[1:]):
             end_a = a.departure_time + ctx.duration(a.route_id)
@@ -109,7 +103,7 @@ def _consecutive(schedules, ctx):
 
 
 def cancel_unavailable_trips(schedules: pd.DataFrame, ctx: PlanContext):
-    """Disruption step: trips of a broken-down bus are cancelled. Returns (kept, cancelled)."""
+   
     mask = []
     for t in _rows(schedules):
         start = ctx.unavailable.get(t.vehicle_id)
@@ -129,7 +123,7 @@ def total_deadhead_minutes(schedules: pd.DataFrame, ctx: PlanContext) -> float:
     return total
 
 
-# ----------------------------------------------------------------------------- checks
+
 def check_vehicle_available(schedules, ctx):
     msgs = []
     for t in _rows(schedules):

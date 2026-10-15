@@ -1,4 +1,4 @@
-"""Tiny hand-made network (6 stops, 3 routes, 4 buses) for tests and for developing before the real sim exists."""
+
 import pandas as pd
 
 STOPS = pd.DataFrame([
