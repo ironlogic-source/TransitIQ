@@ -1,17 +1,4 @@
-"""
-TransitIQ - optimizer.py  (PulseRescue)
-Greedy, constraint-aware optimizer:
 
-  1. cancel trips of unavailable buses (the disruption) -> baseline plan
-  2. find routes with the most unmet demand
-  3. generate candidate fixes: add_trip / reassign_trip / swap_vehicle / shift_departure
-  4. REJECT candidates that break any hard constraint (constraints.validate_plan)
-  5. simulate the survivors, score with objective J (evaluation.py), keep the best
-  6. repeat up to max_steps while J keeps improving; explain trade-offs
-
-`run_sim(schedules_df) -> sim_result dict` is injected (orchestrator wraps simulation.run_simulation
-with fixed vehicles/demand/routes/scenario/seed). The optimizer never edits the simulator.
-"""
 from __future__ import annotations
 
 import math
@@ -26,7 +13,7 @@ ADD_OFFSETS = (-6, -3, 3, 6)
 SHIFT_OFFSETS = (-5, 5)
 
 
-# ------------------------------------------------------------------------ analysis helpers
+
 def route_unmet(sim: dict, schedules: pd.DataFrame) -> pd.Series:
     """Unmet passengers per route (left behind + completely unserved windows)."""
     trip_route = dict(zip(schedules.trip_id, schedules.route_id))
@@ -75,7 +62,7 @@ def _candidate_departures(route, plan, ctx, sim, cancelled) -> list[int]:
     return sorted(int(round(t)) for t in times if lo <= t <= hi)
 
 
-# ------------------------------------------------------------------------ candidate generators
+
 def generate_candidates(plan, ctx, hot_routes, sim, cancelled):
     """Yield (new_plan, action_dict). Nothing is validated here."""
     vehicles = [v for v, i in ctx.vehicle_info.items() if int(i.get("available", 1))]
@@ -90,21 +77,21 @@ def generate_candidates(plan, ctx, hot_routes, sim, cancelled):
 
     occ = sim["occupancy"]
     for route in hot_routes:
-        # (a) add an extra trip using any vehicle
+    
         for dep in _candidate_departures(route, plan, ctx, sim, cancelled):
             for vid in vehicles:
                 row = _new_row(plan, vid, route, dep)
                 new = pd.concat([plan, pd.DataFrame([row])], ignore_index=True)
                 yield from emit(new, {"action": "add_trip", "vehicle_id": vid, "to_route": route,
                                       "from_route": None, "trip_id": row["trip_id"], "departure_time": dep})
-        # (b) re-route an existing trip of another route to the hot route
+       
         for t in plan[plan.route_id != route].itertuples(index=False):
             new = plan.copy()
             new.loc[new.trip_id == t.trip_id, "route_id"] = route
             yield from emit(new, {"action": "reassign_trip", "vehicle_id": t.vehicle_id, "to_route": route,
                                   "from_route": t.route_id, "trip_id": t.trip_id,
                                   "departure_time": t.departure_time})
-        # (c) give a hot trip a bigger bus (swap with that bus's nearest trip, or plain assign)
+     
         hot_trips = plan[plan.route_id == route]
         if len(occ):
             hot_trips = hot_trips[hot_trips.trip_id.isin(occ[occ.left_behind > 0].trip_id)]
@@ -122,7 +109,7 @@ def generate_candidates(plan, ctx, hot_routes, sim, cancelled):
                 yield from emit(new, {"action": "swap_vehicle", "vehicle_id": vid, "to_route": route,
                                       "from_route": route, "trip_id": t.trip_id,
                                       "departure_time": t.departure_time, "replaces_vehicle": t.vehicle_id})
-        # (d) shift a hot trip's departure inside the allowed window
+     
         for t in hot_trips.itertuples(index=False):
             for off in SHIFT_OFFSETS:
                 new = plan.copy()
@@ -132,7 +119,7 @@ def generate_candidates(plan, ctx, hot_routes, sim, cancelled):
                                       "departure_time": t.departure_time + off, "shift_min": off})
 
 
-# ------------------------------------------------------------------------ explanation
+
 def _describe(action: dict) -> str:
     a, t = action["action"], fmt_time(action["departure_time"])
     if a == "add_trip":
@@ -163,7 +150,7 @@ def _explain(action, before_m, after_m, before_unmet, after_unmet, hot_total):
     return reason, ("Trade-offs: " + "; ".join(trade) + ".") if trade else "No adverse trade-offs detected."
 
 
-# ------------------------------------------------------------------------ main entry point
+
 def optimize_plan(run_sim, schedules: pd.DataFrame, ctx: PlanContext, weights: dict | None = None,
                   hot_routes: list | None = None, max_steps: int = 3, top_routes: int = 3,
                   max_candidates: int = 400, min_gain: float = 1e-6) -> dict:
@@ -200,7 +187,7 @@ def optimize_plan(run_sim, schedules: pd.DataFrame, ctx: PlanContext, weights: d
         for new, act in feasible[:max_candidates]:
             s = run_sim(new)
             n_eval += 1
-            v = validate_plan(new, ctx, s)             # adds the capacity check on simulated occupancy
+            v = validate_plan(new, ctx, s)            
             if not v["feasible"]:
                 for name, d in v["details"].items():
                     if not d["ok"]:
@@ -247,5 +234,5 @@ def optimize_plan(run_sim, schedules: pd.DataFrame, ctx: PlanContext, weights: d
         "validation": final_validation,
         "candidates_evaluated": n_eval, "candidates_rejected": dict(rejected),
         "rejection_examples": examples, "weights": weights,
-        "_baseline_sim": sim, "_optimized_sim": cur_sim,     # DataFrames for plotting (not JSON)
+        "_baseline_sim": sim, "_optimized_sim": cur_sim,     
     }
