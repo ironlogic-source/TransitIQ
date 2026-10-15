@@ -1,7 +1,7 @@
 <div align="center">
 
 # 🚌 TransitIQ — RoutePulse
-### Intelligent Campus Transport Planning · IIT Delhi
+### Intelligent Campus Transport Planning 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.x-009688?logo=fastapi&logoColor=white)][def]
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
