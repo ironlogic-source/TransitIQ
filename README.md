@@ -7,7 +7,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Branch](https://img.shields.io/badge/Branch-transitiq--clean-orange?logo=github)](https://github.com/ironlogic-source/TransitIQ/tree/transitiq-clean)
 
-> **PS 02 — RoutePulse**: Optimise Campus Transport Under Real Constraints  
+> **PS — RoutePulse**: Optimise Campus Transport Under Real Constraints  
 > A transport-planning system that estimates arrival windows, forecasts passenger demand, and recommends feasible vehicle and schedule adjustments — while respecting hard operational constraints.
 
 </div>
@@ -64,7 +64,7 @@ A system that only shows vehicle locations does not solve the underlying plannin
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        app.py  (Flask API)                  │
+│                        app.py  (FastAPI)                  │
 │    GET /api/run  ·  GET /api/predict  ·  GET /api/meta      │
 └────────────────────────┬────────────────────────────────────┘
                          │
