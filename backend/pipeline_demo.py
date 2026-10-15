@@ -1,11 +1,4 @@
-"""
-TransitIQ - pipeline_demo.py
-End-to-end flow:  history -> ETA model -> forecast -> risks -> optimizer -> before/after.
-This is the TEMPLATE for orchestrator.py (the junior copies the calls, app.py calls the orchestrator).
 
-Run from repo root:   python -m backend.pipeline_demo
-With real data:       swap the loaders for pd.read_csv("data/....csv") and import backend.simulation.
-"""
 from __future__ import annotations
 
 from functools import partial
