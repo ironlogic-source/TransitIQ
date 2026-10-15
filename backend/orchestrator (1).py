@@ -1,40 +1,4 @@
-"""
-TransitIQ - orchestrator.py
-The glue layer:  data -> scenario -> ETA model -> forecast -> risks -> optimizer -> before/after proof.
 
-app.py (Streamlit) should only talk to THIS module; it never has to know about the engines.
-
-Quick use
----------
-    from backend.orchestrator import Orchestrator, run_pipeline, make_json_safe
-
-    out = run_pipeline("disruption")                  # scenario name from data/scenarios.json (or a dict / None)
-    orch = Orchestrator()                             # or keep one instance (ETA model is trained once and cached)
-    before = orch.predict(scenario, current_time=490) # Predict  : ETAs, loads, alerts, KPIs   (fast, no optimizer)
-    full   = orch.run(scenario, current_time=490)     # Predict + Optimize + Prove
-    applied = orch.apply_plan(full)                   # re-simulate the proposed plan, re-check every hard constraint
-
-Output of run()/run_pipeline()  (superset of backend/pipeline_demo.py)
----------------------------------------------------------------------
-    eta_eval, etas, loads, unserved, alerts, kpis, route_ranking     -> "Predict" tab (state BEFORE optimizing)
-    result                                                           -> optimizer result (see CONTRACT.md) incl.
-                                                                        comparison[] with the eta_mae row added
-    after                                                            -> {loads, etas, alerts, kpis} of the PROPOSED plan
-    scenario, scenario_name, current_time, warnings, meta, timings
-    _ctx, _live_sim                                                  -> Python objects (underscore = not JSON)
-
-`make_json_safe(out)` turns any of the above into plain JSON types.
-
-Design rules
-------------
-* Real simulator (backend/simulation.py) is used when present, otherwise tests/mock_sim.py (reported in meta).
-* Everything is deterministic: fixed seeds, same inputs -> same outputs.
-* Inputs are validated up-front with clear errors (DataValidationError / ScenarioError) instead of KeyErrors
-  deep inside the engines. Soft problems become entries in out["warnings"].
-* The ETA model is trained ONCE per Orchestrator on normal-operation history only (never on the scenario being
-  evaluated, never on the future) and cached; repeated dashboard interactions stay fast.
-* Input DataFrames are never mutated.
-"""
 from __future__ import annotations
 
 import argparse
@@ -80,7 +44,6 @@ ETA_COLS = ["trip_id", "vehicle_id", "route_id", "stop_id", "seq", "scheduled",
             "eta", "eta_lo", "eta_hi", "predicted_delay"]
 
 
-# ============================================================================================ errors
 class OrchestratorError(Exception):
     """Base class for all orchestrator problems."""
 
@@ -93,7 +56,7 @@ class ScenarioError(OrchestratorError):
     """The scenario / current_time / weights passed in are invalid."""
 
 
-# ============================================================================================ data loading
+
 @dataclass
 class DataBundle:
     vehicles: pd.DataFrame
@@ -219,7 +182,7 @@ def _read_json(path: Path, what: str):
 
 
 def _parse_scenarios_file(raw: Any) -> dict[str, dict]:
-    """scenarios.json may be {name: scenario}, a single scenario dict, or a list of {name, ...}."""
+    
     if isinstance(raw, dict) and raw and set(raw) <= SCENARIO_KEYS | {"name", "description"}:
         return {str(raw.get("name", "scenario")): dict(raw)}
     if isinstance(raw, dict):
@@ -240,13 +203,7 @@ def _parse_scenarios_file(raw: Any) -> dict[str, dict]:
 
 
 def load_data(data_dir: str | Path | None = None, allow_toy_fallback: bool = True) -> DataBundle:
-    """Load + validate the CSVs in data_dir (default: <repo>/data, independent of the current directory).
 
-    * all five CSVs present  -> real data
-    * none present           -> toy data from tests/toy_data.py (with a warning) if allow_toy_fallback
-    * some present           -> DataValidationError (a half-delivered dataset must not silently become toy data)
-    Optional: params.json (overrides constraints.DEFAULT_PARAMS), scenarios.json (named scenarios).
-    """
     folder = Path(data_dir) if data_dir is not None else DEFAULT_DATA_DIR
     present = {k: (folder / f).is_file() for k, f in CSV_FILES.items()}
     warnings: list[str] = []
@@ -284,24 +241,23 @@ def load_data(data_dir: str | Path | None = None, allow_toy_fallback: bool = Tru
     return DataBundle(v, r, s, sc, d, params=params, scenarios=scenarios, source=source, warnings=warnings)
 
 
-# ============================================================================================ simulator
 def _import_simulator() -> tuple[Callable, str]:
     """Real simulator if the sim teammate has delivered it, otherwise the mock (same contract)."""
     try:
         from backend.simulation import run_simulation
         return run_simulation, "backend.simulation"
     except ModuleNotFoundError as exc:
-        if exc.name != "backend.simulation":                         # a real bug inside simulation.py: surface it
+        if exc.name != "backend.simulation":                        
             raise
     try:
         from tests.mock_sim import run_simulation
-    except ImportError as exc:                                       # pragma: no cover
+    except ImportError as exc:                                     
         raise OrchestratorError("No simulator available: backend/simulation.py is missing and "
                                 "tests/mock_sim.py could not be imported") from exc
     return run_simulation, "tests.mock_sim (FALLBACK - backend/simulation.py not found)"
 
 
-# ============================================================================================ helpers
+
 def _finite_float(value: Any, what: str, error=ScenarioError) -> float:
     if isinstance(value, bool):
         raise error(f"{what}: must be a number, got {value!r}")
@@ -315,7 +271,7 @@ def _finite_float(value: Any, what: str, error=ScenarioError) -> float:
 
 
 def _plan_df(records) -> pd.DataFrame:
-    """Schedule DataFrame with the right columns even when empty (empty frames break itertuples-based code)."""
+   
     if isinstance(records, pd.DataFrame):
         df = records.copy()
     else:
@@ -324,7 +280,7 @@ def _plan_df(records) -> pd.DataFrame:
 
 
 def _with_columns(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
-    """Engines return column-less frames when there is nothing to report; the dashboard needs the columns."""
+
     if df is None:
         return pd.DataFrame(columns=cols)
     if len(df) == 0 and list(df.columns) != cols:
@@ -334,7 +290,7 @@ def _with_columns(df: pd.DataFrame, cols: list[str]) -> pd.DataFrame:
 
 # ============================================================================================ orchestrator
 class Orchestrator:
-    """Holds the validated data and runs the Predict -> Optimize -> Prove pipeline for any scenario."""
+
 
     def __init__(self, data_dir: str | Path | None = None, data: DataBundle | None = None,
                  simulator: Callable | None = None, seed: int = DEFAULT_SEED,
@@ -375,11 +331,7 @@ class Orchestrator:
         return list(self.data.scenarios)
 
     def resolve_scenario(self, scenario: dict | str | None) -> tuple[dict, str, list[str]]:
-        """Validate/normalise a scenario. Returns (scenario_dict, display_name, warnings).
-
-        Accepts None / {} (normal day), a name from scenarios.json, or a dict following CONTRACT.md.
-        Normalisation: unavailable_vehicles -> {vehicle_id: from_minute} (also includes vehicles with
-        available=0 in vehicles.csv); demand_multiplier -> per-stop dict ("*" expanded, scalar accepted)."""
+      
         warnings: list[str] = []
         name = "normal"
         if isinstance(scenario, str):
@@ -476,7 +428,7 @@ class Orchestrator:
             return float(self.schedules.departure_time.min()) + 10.0 if len(self.schedules) else 0.0
         return _finite_float(current_time, "current_time")
 
-    # ------------------------------------------------------------------ ETA model (cached)
+
     def _history_seeds(self) -> list[int]:
         seeds, s = [], 0
         while len(seeds) < self.n_history_days:
@@ -524,7 +476,7 @@ class Orchestrator:
             self._train_eta()
         return self._eta_eval
 
-    # ------------------------------------------------------------------ stage: forecast + risks
+
     def _forecast(self, plan: pd.DataFrame, ctx: PlanContext, sim: dict, now: float) -> dict:
         etas = _with_columns(predict_all_etas(self.eta_model, sim["arrivals"], now), ETA_COLS)
         loads = _with_columns(forecast_trip_loads(plan, ctx, self._demand_model), LOAD_COLS)
@@ -532,15 +484,14 @@ class Orchestrator:
         ranking = rank_routes_by_excess(loads, unserved)
         alerts = detect_risks(loads, etas if len(etas) else None)
         kpis = summarize_alerts(alerts)
-        # Alerts only cover trips that exist; demand on routes with NO trip left (e.g. after a breakdown) is
-        # tracked separately. `forecast_total_unmet` is the like-for-like number for before-vs-after.
+
         unserved_pax = round(float(unserved.passengers.sum()), 1) if len(unserved) else 0.0
         kpis["forecast_unserved_passengers"] = unserved_pax
         kpis["forecast_total_unmet"] = round(kpis["predicted_unmet_demand"] + unserved_pax, 1)
         return {"etas": etas, "loads": loads, "unserved": unserved, "route_ranking": ranking,
                 "alerts": alerts, "kpis": kpis}
 
-    # ------------------------------------------------------------------ public: predict
+
     def predict(self, scenario: dict | str | None = None, current_time: float | None = None) -> dict:
         """Predict stage only (no optimizer): ETAs + arrival windows, per-trip loads, alerts, KPIs, ranking."""
         t0 = time.perf_counter()
@@ -550,7 +501,7 @@ class Orchestrator:
         timings: dict[str, float] = {}
 
         t = time.perf_counter()
-        eta_eval = self.eta_eval                                     # trains on first use only
+        eta_eval = self.eta_eval                                  
         timings["eta_training"] = round(time.perf_counter() - t, 3)
 
         t = time.perf_counter()
@@ -575,7 +526,7 @@ class Orchestrator:
                 "warnings": list(self.data.warnings) + self._eta_warnings + warns,
                 "meta": self._meta(), "timings": timings, "_ctx": ctx, "_live_sim": live}
 
-    # ------------------------------------------------------------------ public: run (predict + optimize + prove)
+ 
     def run(self, scenario: dict | str | None = None, current_time: float | None = None, optimize: bool = True,
             weights: dict | None = None, max_steps: int = DEFAULT_MAX_STEPS, verbose: bool = False,
             **optimizer_kwargs) -> dict:
@@ -613,7 +564,7 @@ class Orchestrator:
         """Convenience: run() and return just the optimizer result."""
         return self.run(scenario, **kw)["result"]
 
-    # ------------------------------------------------------------------ public: apply plan
+ 
     def apply_plan(self, run_output: dict, scenario: dict | str | None = None) -> dict:
         """'Apply' the proposed plan: re-simulate it and re-validate every hard constraint (incl. capacity).
         Pass the dict returned by run(); `scenario` defaults to the one used in that run."""
@@ -628,7 +579,7 @@ class Orchestrator:
         return {"schedules": plan, "sim": sim, "metrics": compute_metrics(sim, plan, ctx),
                 "validation": validate_plan(plan, ctx, sim)}
 
-    # ------------------------------------------------------------------ internals
+
     @staticmethod
     def _resolve_weights(weights: dict | None) -> dict:
         if weights is None:
@@ -661,7 +612,7 @@ class Orchestrator:
                 "n_trips": len(self.schedules), "scenarios_available": self.scenario_names()}
 
 
-# ============================================================================================ JSON helper
+
 def make_json_safe(obj: Any) -> Any:
     """Recursively convert pipeline output to plain JSON types: DataFrames -> list of records, numpy -> python,
     NaN/inf -> None. Drops underscore keys (live objects) and the fitted ETA model."""
@@ -694,7 +645,7 @@ def make_json_safe(obj: Any) -> Any:
     return str(obj)
 
 
-# ============================================================================================ report / module API
+
 def format_report(out: dict) -> str:
     """Human-readable terminal summary of a run()/predict() output."""
     lines = [f"Scenario: {out['scenario_name']} | time {out['current_time_label']} | "
@@ -740,7 +691,7 @@ def run_pipeline(scenario: dict | str | None = None, current_time: float | None 
     return get_orchestrator(data_dir).run(scenario, current_time, verbose=verbose, **kw)
 
 
-# ============================================================================================ CLI
+
 def _parse_scenario_arg(arg: str | None):
     if not arg:
         return None
@@ -752,7 +703,7 @@ def _parse_scenario_arg(arg: str | None):
             return json.loads(arg)
         except ValueError as exc:
             raise ScenarioError(f"--scenario is not valid JSON: {exc}") from exc
-    return arg                                                       # a name from scenarios.json
+    return arg                                                 
 
 
 def main(argv: list[str] | None = None) -> int:
