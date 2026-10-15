@@ -1,112 +1,221 @@
 """
-app.py – iRoutePulse Flask API
-=================================
-REST backend for the iRoutePulse dashboard.
+app.py – TransitIQ FastAPI Backend
+====================================
+REST API for the TransitIQ / iRoutePulse dashboard.
 
 Endpoints
 ---------
-GET  /                          → health-check
-GET  /api/run                   → full Predict → Optimize → Prove pipeline
-GET  /api/predict               → predict-only (no optimizer)
-POST /api/run                   → same as GET /api/run but accepts JSON body
-GET  /api/meta                  → fleet / network summary
-GET  /api/scenarios             → list available scenarios
+GET  /                  → health-check + fleet summary
+GET  /api/meta          → network stats
+GET  /api/scenarios     → list available disruption scenarios
+GET  /api/predict       → Predict phase only (ETAs, alerts, KPIs)
+POST /api/predict       → same, accepts JSON body
+GET  /api/run           → full Predict → Optimize → Prove pipeline
+POST /api/run           → same, accepts JSON body
+
+Auto docs: http://localhost:8000/docs  (Swagger UI)
+          http://localhost:8000/redoc  (ReDoc)
 """
 
 from __future__ import annotations
 
 import logging
-import os
 from pathlib import Path
+from typing import Any
 
-from flask import Flask, jsonify, request
-from flask_cors import CORS
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 from backend.orchestrator import (
-    Orchestrator,
     OrchestratorError,
     ScenarioError,
-    make_json_safe,
     get_orchestrator,
+    make_json_safe,
 )
 
 # ---------------------------------------------------------------------------
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 log = logging.getLogger(__name__)
 
-app = Flask(__name__)
-CORS(app)
+DATA_DIR = Path(__file__).resolve().parent / "data"
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
+app = FastAPI(
+    title="TransitIQ — RoutePulse API",
+    description=(
+        "Campus transport planning system for IIT Delhi. "
+        "Estimates arrival windows, forecasts demand, detects overcrowding/delays, "
+        "and recommends feasible schedule optimisations under hard constraints."
+    ),
+    version="1.0.0",
+    contact={"name": "TransitIQ Team", "url": "https://github.com/ironlogic-source/TransitIQ"},
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ---------------------------------------------------------------------------
+# Pydantic request models
+# ---------------------------------------------------------------------------
+
+class PredictRequest(BaseModel):
+    scenario: dict | str | None = None
+    current_time: float | None = None
+
+    model_config = {"json_schema_extra": {
+        "examples": [
+            {"scenario": None, "current_time": None},
+            {"scenario": {"demand_multiplier": {"*": 1.5}}, "current_time": 490.0},
+        ]
+    }}
 
 
-def _orc() -> Orchestrator:
-    return get_orchestrator(DATA_DIR)
+class RunRequest(BaseModel):
+    scenario: dict | str | None = None
+    current_time: float | None = None
+    optimize: bool = True
+    max_steps: int = 3
+    weights: dict | None = None
+
+    model_config = {"json_schema_extra": {
+        "examples": [
+            {"scenario": None, "optimize": True, "max_steps": 3},
+            {
+                "scenario": {"unavailable_vehicles": ["V_ERICK_1"], "demand_multiplier": {"*": 1.5}},
+                "optimize": True,
+                "max_steps": 3,
+                "weights": {"unmet_demand": 2.0},
+            },
+        ]
+    }}
 
 
 # ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
 
-@app.route("/", methods=["GET"])
+def _orc():
+    return get_orchestrator(DATA_DIR)
+
+
+def _safe(obj: Any) -> Any:
+    return make_json_safe(obj)
+
+
+def _handle(exc: Exception) -> HTTPException:
+    if isinstance(exc, (OrchestratorError, ScenarioError)):
+        raise HTTPException(status_code=400, detail=str(exc))
+    log.exception("Unexpected error")
+    raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+@app.get("/", tags=["Health"], summary="Health check")
 def health():
-    meta = _orc()._meta()
-    return jsonify({"project": "iRoutePulse", "status": "running", "meta": meta})
+    """Returns project info and fleet/network summary."""
+    return {"project": "TransitIQ — RoutePulse", "status": "running", "meta": _orc()._meta()}
 
 
-@app.route("/api/scenarios", methods=["GET"])
-def scenarios():
-    return jsonify({"scenarios": _orc().scenario_names()})
-
-
-@app.route("/api/meta", methods=["GET"])
+@app.get("/api/meta", tags=["Info"], summary="Network metadata")
 def meta():
-    return jsonify(_orc()._meta())
+    """Returns fleet and network statistics: vehicles, routes, stops, trips."""
+    return _orc()._meta()
 
 
-def _parse_body() -> dict:
-    if request.is_json and request.data:
-        return request.get_json(silent=True) or {}
-    return {}
+@app.get("/api/scenarios", tags=["Info"], summary="Available scenarios")
+def scenarios():
+    """Lists all named disruption scenarios loaded from data/scenarios.json."""
+    return {"scenarios": _orc().scenario_names()}
 
 
-@app.route("/api/predict", methods=["GET", "POST"])
-def predict():
-    body = _parse_body()
-    scenario = request.args.get("scenario") or body.get("scenario")
-    current_time = request.args.get("time", type=float) or body.get("current_time")
+# ── Predict ──────────────────────────────────────────────────────────────────
+
+@app.get("/api/predict", tags=["Pipeline"], summary="Predict phase (GET)")
+def predict_get(
+    scenario: str | None = Query(None, description="Scenario name or inline JSON string"),
+    time: float | None = Query(None, description="Current time in minutes since midnight (e.g. 490 = 08:10)"),
+):
+    """
+    **Predict phase only** — no optimisation.
+
+    Returns ETAs with confidence intervals, per-trip demand loads,
+    overcrowding / delay / missed-connection alerts, and KPIs.
+    """
     try:
-        out = _orc().predict(scenario, current_time)
-        return jsonify(make_json_safe(out))
-    except (OrchestratorError, ScenarioError) as exc:
-        return jsonify({"error": str(exc)}), 400
+        out = _orc().predict(scenario, time)
+        return _safe(out)
     except Exception as exc:
-        log.exception("predict error")
-        return jsonify({"error": str(exc)}), 500
+        _handle(exc)
 
 
-@app.route("/api/run", methods=["GET", "POST"])
-def run():
-    body = _parse_body()
-    scenario = request.args.get("scenario") or body.get("scenario")
-    current_time = request.args.get("time", type=float) or body.get("current_time")
-    optimize = request.args.get("optimize", "true").lower() != "false"
-    max_steps = int(request.args.get("max_steps", body.get("max_steps", 3)))
-    weights = body.get("weights")
+@app.post("/api/predict", tags=["Pipeline"], summary="Predict phase (POST)")
+def predict_post(body: PredictRequest):
+    """Same as GET /api/predict but accepts a JSON body for complex scenarios."""
+    try:
+        out = _orc().predict(body.scenario, body.current_time)
+        return _safe(out)
+    except Exception as exc:
+        _handle(exc)
+
+
+# ── Run (full pipeline) ───────────────────────────────────────────────────────
+
+@app.get("/api/run", tags=["Pipeline"], summary="Full pipeline (GET)")
+def run_get(
+    scenario: str | None = Query(None, description="Scenario name or inline JSON string"),
+    time: float | None = Query(None, description="Current time in minutes since midnight"),
+    optimize: bool = Query(True, description="Run optimiser (set false for predict-only)"),
+    max_steps: int = Query(3, description="Max optimisation iterations"),
+):
+    """
+    **Full Predict → Optimize → Prove pipeline.**
+
+    - Runs the simulation engine
+    - Trains the ETA model on 10 days of simulated history
+    - Forecasts demand and detects risks
+    - Recommends feasible schedule / vehicle adjustments
+    - Proves improvement with Before/After metrics
+    """
     try:
         out = _orc().run(
             scenario=scenario,
-            current_time=current_time,
+            current_time=time,
             optimize=optimize,
-            weights=weights,
             max_steps=max_steps,
         )
-        return jsonify(make_json_safe(out))
-    except (OrchestratorError, ScenarioError) as exc:
-        return jsonify({"error": str(exc)}), 400
+        return _safe(out)
     except Exception as exc:
-        log.exception("run error")
-        return jsonify({"error": str(exc)}), 500
+        _handle(exc)
 
+
+@app.post("/api/run", tags=["Pipeline"], summary="Full pipeline (POST)")
+def run_post(body: RunRequest):
+    """Same as GET /api/run but accepts a full JSON body with custom weights."""
+    try:
+        out = _orc().run(
+            scenario=body.scenario,
+            current_time=body.current_time,
+            optimize=body.optimize,
+            weights=body.weights,
+            max_steps=body.max_steps,
+        )
+        return _safe(out)
+    except Exception as exc:
+        _handle(exc)
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000, host="0.0.0.0")
+    import uvicorn
+    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
