@@ -1,8 +1,4 @@
-"""
-TransitIQ - risk_engine.py
-Turns forecasts into human-readable alerts BEFORE passengers board.
-Alert: {type, severity, trip_id, route_id, stop_id, value, message}
-"""
+
 from __future__ import annotations
 
 import pandas as pd
@@ -63,7 +59,7 @@ def detect_risks(loads: pd.DataFrame, etas: pd.DataFrame | None = None, params: 
 
 
 def summarize_alerts(alerts: list[dict]) -> dict:
-    """Dashboard KPI tiles."""
+
     return {
         "total_alerts": len(alerts),
         "overcrowded_stops": len({(a["trip_id"], a["stop_id"]) for a in alerts if a["type"] == "OVERCROWDING"}),
