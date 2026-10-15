@@ -62,3 +62,7 @@ Reference implementation: `tests/mock_sim.py` (same contract).
 - Who creates `backend/db.py` and `export_csv.py` (they are referenced here but not written yet).
 - Scenarios: JSON file or DB table.
 - Whether `gps_traces` is needed (the ETA engine currently trains from the simulator's `arrivals`).
+
+
+
+huefuefufbeufuefhuefeu
