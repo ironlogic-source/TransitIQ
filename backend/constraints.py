@@ -82,7 +82,7 @@ class PlanContext:
         return math.hypot(xa - xb, ya - yb) / self.p("speed_m_per_min")
 
 
-# ----------------------------------------------------------------------------- helpers
+
 Trip = namedtuple("Trip", "trip_id vehicle_id route_id departure_time")
 
 
@@ -129,7 +129,7 @@ def total_deadhead_minutes(schedules: pd.DataFrame, ctx: PlanContext) -> float:
     return total
 
 
-# ----------------------------------------------------------------------------- checks
+
 def check_vehicle_available(schedules, ctx):
     msgs = []
     for t in _rows(schedules):
