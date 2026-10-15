@@ -2,9 +2,8 @@
 
 # 🚌 TransitIQ — RoutePulse
 ### Intelligent Campus Transport Planning · IIT Delhi
-
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)](https://python.org)
-[![Flask](https://img.shields.io/badge/Flask-3.x-black?logo=flask)](https://flask.palletsprojects.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.x-009688?logo=fastapi&logoColor=white)][def]
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 [![Branch](https://img.shields.io/badge/Branch-transitiq--clean-orange?logo=github)](https://github.com/ironlogic-source/TransitIQ/tree/transitiq-clean)
 
@@ -407,3 +406,6 @@ Made with ☕ for **PS 02 — RoutePulse**
 [🔗 GitHub](https://github.com/ironlogic-source/TransitIQ) · [📦 Branch: transitiq-clean](https://github.com/ironlogic-source/TransitIQ/tree/transitiq-clean)
 
 </div>
+
+
+[def]: https://fastapi.tiangolo.com
