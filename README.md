@@ -5,8 +5,6 @@
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.x-009688?logo=fastapi&logoColor=white)][def]
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Branch](https://img.shields.io/badge/Branch-transitiq--clean-orange?logo=github)](https://github.com/ironlogic-source/TransitIQ/tree/transitiq-clean)
-
 > **PS — RoutePulse**: Optimise Campus Transport Under Real Constraints  
 > A transport-planning system that estimates arrival windows, forecasts passenger demand, and recommends feasible vehicle and schedule adjustments — while respecting hard operational constraints.
 
