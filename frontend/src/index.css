@@ -1,8 +1,11 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -13,45 +16,163 @@ body {
 }
 
 /* Leaflet dark overrides */
-.leaflet-container { background: #060b18 !important; }
+.leaflet-container {
+  background: #060b18 !important;
+}
 
 .leaflet-popup-content-wrapper {
   background: #0d1526;
   color: #f9fafb;
   border: 1px solid #1a2540;
   border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
 }
-.leaflet-popup-tip { background: #0d1526; }
-.leaflet-popup-content { margin: 12px 16px; }
-.leaflet-popup-close-button { color: #6b7280 !important; }
-.leaflet-popup-close-button:hover { color: #fff !important; }
+
+.leaflet-popup-tip {
+  background: #0d1526;
+}
+
+.leaflet-popup-content {
+  margin: 12px 16px;
+}
+
+.leaflet-popup-close-button {
+  color: #6b7280 !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #fff !important;
+}
 
 .leaflet-control-zoom a {
   background: #0d1526 !important;
   color: #9ca3af !important;
   border-color: #1a2540 !important;
 }
+
 .leaflet-control-zoom a:hover {
   background: #111f3a !important;
   color: #fff !important;
 }
+
 .leaflet-control-attribution {
-  background: rgba(6,11,24,0.85) !important;
+  background: rgba(6, 11, 24, 0.85) !important;
   color: #374151 !important;
   font-size: 10px;
 }
-.leaflet-control-attribution a { color: #4b5563 !important; }
+
+.leaflet-control-attribution a {
+  color: #4b5563 !important;
+}
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: #0d1526; }
-::-webkit-scrollbar-thumb { background: #1a2540; border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: #374151; }
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d1526;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1a2540;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
 
 /* Pulse */
 @keyframes live-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50%       { opacity: 0.5; transform: scale(1.4); }
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.5;
+    transform: scale(1.4);
+  }
 }
-.live-pulse { animation: live-pulse 2s ease-in-out infinite; }
+
+.live-pulse {
+  animation: live-pulse 2s ease-in-out infinite;
+}
+
+/* Bus simulation animation */
+.bus-simulation-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 20px;
+  background: rgba(13, 21, 38, 0.95);
+  border-bottom: 1px solid #1a2540;
+  color: #93c5fd;
+  font-size: 11px;
+  font-weight: 600;
+  flex: none;
+}
+
+.bus-track {
+  position: relative;
+  width: 110px;
+  height: 24px;
+  overflow: hidden;
+  border-bottom: 1px dashed #334155;
+  flex: none;
+}
+
+.bus-moving {
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  color: #60a5fa;
+  animation: bus-drive 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes bus-drive {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(82px);
+  }
+}
+
+/* Respect reduced-motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .bus-moving {
+    animation: none;
+    left: 40px;
+  }
+
+  .live-pulse {
+    animation: none;
+  }
+}
+
+/* Animated Bus Map Marker styles */
+.leaflet-bus-icon-container {
+  background: transparent !important;
+  border: none !important;
+  overflow: visible !important;
+}
+
+@keyframes bus-pulse-ring {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.4);
+    opacity: 0.25;
+  }
+  100% {
+    transform: scale(1.85);
+    opacity: 0;
+  }
+}
+
