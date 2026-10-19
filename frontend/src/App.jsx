@@ -7,6 +7,7 @@ import VehiclesTab from './components/VehiclesTab.jsx'
 import ETAsTab from './components/ETAsTab.jsx'
 import OptimizePanel from './components/OptimizePanel.jsx'
 import { SCENARIOS } from './constants.js'
+import { BusFront } from 'lucide-react'
 
 const TABS = [
   { key: 'alerts',   label: (d) => `Alerts (${d?.alerts?.length ?? 0})` },
@@ -87,7 +88,17 @@ export default function App() {
         currentTimeLabel={d?.current_time_label}
         warnings={d?.warnings || []}
       />
-
+      {/* Bus simulation animation */}
+      {status === 'optimizing' && (
+        <div className="bus-simulation-strip">
+          <div className="bus-track">
+           <div className="bus-moving">
+            <BusFront size={22} />
+           </div>
+          </div>
+         <span>Simulation running · Optimising campus routes...</span>
+       </div>
+      )}
       {/* Error banner */}
       {error && (
         <div className="mx-4 mt-2 px-4 py-2 bg-red-950/60 border border-red-800/60 rounded-lg
