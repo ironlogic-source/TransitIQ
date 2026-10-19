@@ -134,6 +134,9 @@ export default function App() {
                 arrivals={d.arrivals || []}
                 etas={d.etas || []}
                 alerts={d.alerts || []}
+                isSimulating={status === 'optimizing'}
+                status={status}
+                scenarioKey={scenarioKey}
               />
             </div>
 
